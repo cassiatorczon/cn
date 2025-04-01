@@ -557,6 +557,8 @@ let check s =
 
 (** {2 Decoding Results} *)
 
+let get_proof s = s.command (Sexp.of_string "(get-proof)")
+
 (** Get all definitions currently in scope. Only valid after a [Sat] result.
     See also {!model_eval}. *)
 let get_model s =
@@ -832,6 +834,7 @@ let new_solver (cfg : solver_config) : solver =
   in
   ack_command s (set_option ":print-success" "true");
   ack_command s (set_option ":produce-models" "true");
+  ack_command s (set_option ":produce-proofs" "true");
   List.iter
     (fun (name, setting) -> ack_command s (set_option (":" ^ name) setting))
     cfg.params;
