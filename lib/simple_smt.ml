@@ -7,6 +7,17 @@ module StrMap = Map.Make (String)
 
 type sexp = Sexp.t
 
+let rec pp_sexp (f : sexp) =
+  let open Pp in
+  let pp_list pp_elem xs =
+    let f x acc = pp_elem x ^^^ !^"; " ^^^ acc in
+    !^"[ " ^^^ List.fold_right f xs !^"" ^^^ !^"]"
+  in
+  match f with
+  | Atom s -> !^"Atom: " ^^^ !^s
+  | List xs -> !^"List: " ^^^ pp_list pp_sexp xs
+
+
 let atom f : sexp = Sexp.Atom f
 
 let list (xs : sexp list) : sexp = Sexp.List xs
