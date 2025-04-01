@@ -59,6 +59,9 @@ val provable
   LogicalConstraints.t ->
   [> `True | `False ]
 
+(* Ask the solver for the proof that it found in a call to [provable] *)
+val get_proof : unit -> Pp.document
+
 (* Ask the solver for the model that it found in a call to [provable] *)
 val model : unit -> model_with_q
 

@@ -1297,6 +1297,22 @@ let make globals =
 
 
 (* ---------------------------------------------------------------------------*)
+(* GLOBAL STATE: Proofs *)
+(* ---------------------------------------------------------------------------*)
+
+type proof =
+  | Proof of SMT.sexp
+  | No_proof
+
+let proof = ref No_proof
+
+let pp_proof p = match p with No_proof -> !^"No proof" | Proof f -> SMT.pp_sexp f
+
+let get_proof () =
+  match !proof with No_proof -> assert false | Proof p -> pp_proof (Proof p)
+
+
+(* ---------------------------------------------------------------------------*)
 (* GLOBAL STATE: Models *)
 (* ---------------------------------------------------------------------------*)
 
