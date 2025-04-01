@@ -1466,6 +1466,10 @@ let try_hard = ref false
 
 let provableWithUnknown ~loc ~solver ~assumptions ~simp_ctxt lc =
   let _ = loc in
+  let set_proof smt_solver =
+    let p = SMT.get_proof smt_solver in
+    proof := Proof p
+  in
   let set_model smt_solver qs =
     let defs = SMT.get_model smt_solver in
     let model = model_evaluator solver defs in
@@ -1485,6 +1489,7 @@ let provableWithUnknown ~loc ~solver ~assumptions ~simp_ctxt lc =
      | SMT.Unsat ->
        debug_ack_command solver (SMT.pop 1);
        model_state := No_model;
+       set_proof inc;
        `True
      | SMT.Sat when !try_hard ->
        debug_ack_command solver (SMT.pop 1);
@@ -1500,16 +1505,20 @@ let provableWithUnknown ~loc ~solver ~assumptions ~simp_ctxt lc =
         | SMT.Unsat ->
           debug_ack_command solver (SMT.pop 1);
           model_state := No_model;
+          proof := No_proof;
+          set_proof inc;
           Pp.(debug 3 (lazy !^"***** try-hard: provable *****"));
           `True
         | SMT.Sat ->
           set_model inc qs;
           debug_ack_command solver (SMT.pop 1);
+          proof := No_proof;
           Pp.(debug 3 (lazy !^"***** try-hard: unprovable *****"));
           `Unknown (*TODO CHT*)
         | SMT.Unknown ->
           set_model inc qs;
           debug_ack_command solver (SMT.pop 1);
+          proof := No_proof;
           Pp.(debug 3 (lazy !^"***** try-hard: unknown *****"));
           `False)
      | SMT.Sat ->
