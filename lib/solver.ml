@@ -1466,9 +1466,21 @@ let try_hard = ref false
 
 let provableWithUnknown ~loc ~solver ~assumptions ~simp_ctxt lc =
   let _ = loc in
+  let print x = Pp.debug 0 (lazy x) in
+  let todo ctxt goal proof =
+    print
+      (!^"Assumptions: "
+       ^^^ SMT.pp_sexp (SMT.bool_ands ctxt)
+       ^^^ !^"\nGoal: "
+       ^^^ SMT.pp_sexp goal
+       ^^^ !^"\nProof: "
+       ^^^ SMT.pp_sexp proof
+       ^^^ !^"\n\n\n")
+  in
   let set_proof smt_solver =
     let p = SMT.get_proof smt_solver in
-    proof := Proof p
+    proof := Proof p;
+    p
   in
   let set_model smt_solver qs =
     let defs = SMT.get_model smt_solver in
@@ -1487,7 +1499,9 @@ let provableWithUnknown ~loc ~solver ~assumptions ~simp_ctxt lc =
     debug_ack_command solver (SMT.assume (SMT.bool_ands (nexpr :: extra)));
     (match SMT.check inc with
      | SMT.Unsat ->
-       set_proof inc;
+       let p = set_proof inc in
+       (*CHT TODO: revert set_proof to returning unit*)
+       todo extra expr p;
        debug_ack_command solver (SMT.pop 1);
        model_state := No_model;
        `True
@@ -1503,7 +1517,9 @@ let provableWithUnknown ~loc ~solver ~assumptions ~simp_ctxt lc =
        Pp.(debug 3 (lazy !^"***** try-hard *****"));
        (match SMT.check inc with
         | SMT.Unsat ->
-          set_proof inc;
+          let p = set_proof inc in
+          (*CHT TODO: revert set_proof to returning unit*)
+          todo extra expr p;
           debug_ack_command solver (SMT.pop 1);
           model_state := No_model;
           Pp.(debug 3 (lazy !^"***** try-hard: provable *****"));
