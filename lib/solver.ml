@@ -1468,6 +1468,11 @@ let provableWithUnknown ~loc ~solver ~assumptions ~simp_ctxt lc =
   let _ = loc in
   let set_proof smt_solver =
     let p = SMT.get_proof smt_solver in
+    let debug_here =
+      Pp.debug 0 (lazy (!^"Proof: " ^^^ SMT.pp_sexp p));
+      ()
+    in
+    debug_here;
     proof := Proof p
   in
   let set_model smt_solver qs =
