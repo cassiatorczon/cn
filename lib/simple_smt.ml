@@ -905,7 +905,8 @@ let printf_log =
 let cvc5 : solver_config =
   { exe = "cvc5";
     (* opts = [ "--incremental"; "--sets-ext"; "--force-logic=QF_AUFBVDTLIA" ]; *)
-    opts = [ "--incremental"; "--sets-ext"; "--force-logic=QF_ALL" ];
+    opts =
+      [ "--incremental"; "--sets-ext"; "--force-logic=QF_ALL"; "--proof-format-mode=cpc" ];
     params = [];
     exts = CVC5;
     log = quiet_log
