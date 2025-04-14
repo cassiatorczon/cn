@@ -1,8 +1,7 @@
 module CF = Cerb_frontend
 open CF.Cn
-open Compile
-open Executable_spec_utils
-module ESE = Executable_spec_extract
+open Utils
+module ESE = Extract
 module A = CF.AilSyntax
 module C = CF.Ctype
 module BT = BaseTypes
@@ -11,7 +10,7 @@ module T = Terms
 module LRT = LogicalReturnTypes
 module LAT = LogicalArgumentTypes
 module AT = ArgumentTypes
-module OE = Ownership_exec
+module OE = Ownership
 
 let true_const = A.AilEconst (ConstantPredefined PConstantTrue)
 
@@ -163,8 +162,12 @@ let augment_record_map ?cn_sym bt =
   | _ -> ()
 
 
+let lookup_records_map_opt bt =
+  match bt with BT.Record members -> RecordMap.find_opt members !records | _ -> None
+
+
 let lookup_records_map members =
-  match RecordMap.find_opt members !records with
+  match lookup_records_map_opt (BT.Record members) with
   | Some sym -> sym
   | None ->
     failwith
@@ -503,8 +506,41 @@ let cn_to_ail_const const basetype =
   let ail_const =
     match const with
     | IT.Z z -> wrap (A.AilEconst (ConstantInteger (IConstant (z, Decimal, None))))
-    | MemByte { alloc_id = _; value = i } | Bits (_, i) ->
+    | MemByte { alloc_id = _; value = i } ->
       wrap (A.AilEconst (ConstantInteger (IConstant (i, Decimal, None))))
+    | Bits ((sgn, sz), i) ->
+      let z_min, z_max = BT.bits_range (sgn, sz) in
+      let ity =
+        let ibt = CF.IntegerType.IntN_t sz in
+        match sgn with Signed -> C.Signed ibt | Unsigned -> C.Unsigned ibt
+      in
+      let suffix =
+        let size_of = Memory.size_of_integer_type in
+        match sgn with
+        | Unsigned ->
+          if sz <= size_of (Unsigned Int_) then
+            Some A.U
+          else if sz <= size_of (Unsigned Long) then
+            Some A.UL
+          else
+            Some A.ULL
+        | Signed ->
+          if sz <= size_of (Signed Int_) then
+            None
+          else if sz <= size_of (Signed Long) then
+            Some A.L
+          else
+            Some A.LL
+      in
+      let ail_const =
+        if Z.equal i z_max then
+          A.ConstantInteger (IConstantMax ity)
+        else if Z.equal i z_min && BT.equal_sign sgn BT.Signed then
+          A.ConstantInteger (IConstantMin ity)
+        else
+          ConstantInteger (IConstant (i, Decimal, suffix))
+      in
+      wrap (A.AilEconst ail_const)
     | Q q -> wrap (A.AilEconst (ConstantFloating (Q.to_string q, None)))
     | Pointer z ->
       let ail_const' =
@@ -1306,9 +1342,12 @@ let rec cn_to_ail_expr_aux
                  let ail_case =
                    A.(AilScase (Nat_big_num.zero (* placeholder *), mk_stmt stat_block))
                  in
-                 A.(
-                   AnnotatedStatement
-                     (Cerb_location.unknown, CF.Annot.Attrs [ attribute ], ail_case))
+                 A.
+                   { loc = Cerb_location.unknown;
+                     is_forloop = false;
+                     attrs = CF.Annot.Attrs [ attribute ];
+                     node = ail_case
+                   }
                in
                let e1_transformed = transform_switch_expr e1 in
                let ail_case_stmts = List.map build_case dt.cn_dt_cases in
@@ -1681,7 +1720,12 @@ let generate_datatype_equality_function (cn_datatype : _ cn_datatype)
     let ail_case =
       A.(AilScase (Nat_big_num.zero, mk_stmt (AilSblock (bs, ss @ [ return_stat ]))))
     in
-    A.(AnnotatedStatement (Cerb_location.unknown, CF.Annot.Attrs [ attribute ], ail_case))
+    A.
+      { loc = Cerb_location.unknown;
+        is_forloop = false;
+        attrs = CF.Annot.Attrs [ attribute ];
+        node = ail_case
+      }
   in
   let switch_stmt =
     A.(
@@ -1784,9 +1828,12 @@ let generate_datatype_default_function (cn_datatype : _ cn_datatype) =
               (mk_expr (AilEmemberofptr (res_ident, Id.make here "tag")), enum_ident))))
   in
   let res_tag_assign_stat =
-    A.(
-      AnnotatedStatement
-        (Cerb_location.unknown, CF.Annot.Attrs [ attribute ], res_tag_assign))
+    A.
+      { loc = Cerb_location.unknown;
+        is_forloop = false;
+        attrs = CF.Annot.Attrs [ attribute ];
+        node = res_tag_assign
+      }
   in
   let lc_constr_sym = generate_sym_with_suffix ~suffix:"" ~lowercase:true constructor in
   let res_u = A.(AilEmemberofptr (res_ident, Id.make here "u")) in
@@ -2731,13 +2778,21 @@ let cn_to_ail_logical_constraint
   cn_to_ail_logical_constraint_aux dts globals PassBack lc
 
 
-let rec generate_record_opt pred_sym = function
-  | BT.Record members ->
-    let record_sym = generate_sym_with_suffix ~suffix:"_record" pred_sym in
-    Some (generate_struct_definition ~lc:false (record_sym, members))
+let generate_record_tag pred_sym bt =
+  match bt with
+  | BT.Record _ -> Some (generate_sym_with_suffix ~suffix:"_record" pred_sym)
+  | BT.Tuple _ -> Some pred_sym
+  | _ -> None
+
+
+let rec generate_record_opt pred_sym bt =
+  let open Option in
+  let@ type_sym = generate_record_tag pred_sym bt in
+  match bt with
+  | BT.Record members -> Some (generate_struct_definition ~lc:false (type_sym, members))
   | BT.Tuple ts ->
     let members = List.map (fun t -> (create_id_from_sym (Sym.fresh_anon ()), t)) ts in
-    generate_record_opt pred_sym (BT.Record members)
+    generate_record_opt type_sym (BT.Record members)
   | _ -> None
 
 

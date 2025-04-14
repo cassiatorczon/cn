@@ -46,7 +46,7 @@ let attempt cmd success failure =
 
 
 let cc_flags () =
-  [ "-g"; "\"-I${RUNTIME_PREFIX}/include/\"" ]
+  [ "-g"; "\"-I${RUNTIME_PREFIX}/include/\""; "${CFLAGS}"; "${CPPFLAGS}" ]
   @ (let sanitize, no_sanitize = Config.has_sanitizers () in
      (match sanitize with Some sanitize -> [ "-fsanitize=" ^ sanitize ] | None -> [])
      @
@@ -236,17 +236,29 @@ let coverage ~filename_base =
   ^^ string "echo"
   ^^ hardline
   ^^ attempt
-       ("gcov \"" ^ filename_base ^ "_test.c\"")
-       "Recorded coverage via gcov."
-       "Failed to record coverage."
-  ^^ twice hardline
-  ^^ attempt
-       "lcov --capture --directory . --output-file coverage.info"
+       "lcov --capture --directory . --output-file coverage.info --gcov-tool gcov"
        "Collected coverage via lcov."
        "Failed to collect coverage."
   ^^ twice hardline
   ^^ attempt
-       "genhtml --output-directory html \"coverage.info\""
+       (let realpath s = "$(realpath \"" ^ s ^ "\")" in
+        String.concat
+          " "
+          [ "lcov";
+            "--ignore-errors unused";
+            "--directory .";
+            "--remove coverage.info";
+            "-o coverage_filtered.info";
+            realpath "cn.c";
+            realpath "cn.h";
+            realpath (filename_base ^ "_test.c");
+            realpath (filename_base ^ "_gen.h")
+          ])
+       "Exclude test harnesses from coverage via lcov."
+       "Failed to exclude test harnesses from coverage."
+  ^^ twice hardline
+  ^^ attempt
+       "genhtml --output-directory html \"coverage_filtered.info\""
        "Generated HTML report at '${TEST_DIR}/html/'."
        "Failed to generate HTML report."
   ^^ hardline

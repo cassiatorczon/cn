@@ -70,6 +70,12 @@ and its dependencies.
    opam init --yes --compiler=5.2.0
    ````
 
+   Make sure you follow the instructions provided at the end of the output of `opam init` to complete the initialisation. Typically, on Unix, this is:
+
+   ```
+   eval $(opam env)
+   ```
+
 4. Clone the CN repo:
    ```
    git clone https://github.com/rems-project/cn.git
@@ -105,6 +111,11 @@ programme from grant agreement no. 101002277 "TypeFoundry", and no. 789108,
 ERC-AdG-2017 "ELVER"; from the UK Research and Innovation (UKRI) under the
 UK government’s Horizon Europe funding guarantee for ERC-AdG-2022,
 EP/Y035976/1 "SAFER"; from an EPSRC Doctoral Training studentship;
-from Google; from the Defense Advanced Research Projects Agencies (DARPA) 
-under Contract No. FA8750-24-C-B044; and from a Royal Society University 
-Research Fellowship URF\R1\241195 (Pulte).
+from Google; and from a Royal Society University Research Fellowship 
+URF\R1\241195 (Pulte).
+
+This material is based upon work supported by the Air Force Research Laboratory 
+(AFRL) and Defense Advanced Research Projects Agencies (DARPA) under Contract 
+No. FA8750-24-C-B044.  Any opinions, findings, and conclusions or 
+recommendations expressed in this material are those of the author(s) and do 
+not necessarily reflect the views of the AFRL and DARPA.

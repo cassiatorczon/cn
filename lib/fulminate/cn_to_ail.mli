@@ -17,6 +17,8 @@ val records : Sym.t RecordMap.t ref
 
 val augment_record_map : ?cn_sym:Sym.t -> BT.t -> unit
 
+val lookup_records_map_opt : BT.t -> Sym.t option
+
 val bt_to_cn_base_type : BT.t -> Sym.t CF.Cn.cn_base_type
 
 val bt_to_ail_ctype : ?pred_sym:Sym.t option -> BT.t -> C.ctype
@@ -98,6 +100,8 @@ val generate_struct_default_function
   A.sigma_tag_definition ->
   (A.sigma_declaration * CF.GenTypes.genTypeCategory A.sigma_function_definition) list
 
+val generate_record_tag : Sym.t -> BT.t -> Sym.t option
+
 val generate_record_opt : Sym.t -> BT.t -> A.sigma_tag_definition option
 
 val generate_record_equality_function
@@ -166,7 +170,7 @@ val cn_to_ail_pre_post
   (Sym.t * Definition.Predicate.t) list ->
   (Sym.t * C.ctype) list ->
   C.ctype ->
-  Executable_spec_extract.fn_args_and_body option ->
+  Extract.fn_args_and_body option ->
   ail_executable_spec
 
 val cn_to_ail_assume_predicates

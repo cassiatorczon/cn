@@ -1,3 +1,9 @@
+module Cn_to_ail = Cn_to_ail
+module Extract = Extract
+module Internal = Internal
+module Ownership = Ownership
+module Utils = Utils
+
 let rec group_toplevel_defs new_list = function
   | [] -> new_list
   | loc :: ls ->
@@ -182,7 +188,13 @@ let memory_accesses_injections ail_prog =
 
 let output_to_oc oc str_list = List.iter (Stdlib.output_string oc) str_list
 
-open Executable_spec_internal
+open Internal
+
+let get_instrumented_filename filename =
+  Filename.(remove_extension (basename filename)) ^ "-exec.c"
+
+
+let get_cn_helper_filename _filename = "cn.c"
 
 let main
       ?(without_ownership_checking = false)
@@ -198,16 +210,16 @@ let main
       prog5
   =
   let output_filename =
-    match output_decorated with
-    | None -> Filename.(remove_extension (basename filename)) ^ "-exec.c"
-    | Some output_filename' -> output_filename'
+    Option.value ~default:(get_instrumented_filename filename) output_decorated
   in
   let prefix = match output_decorated_dir with Some dir_name -> dir_name | None -> "" in
   let oc = Stdlib.open_out (Filename.concat prefix output_filename) in
-  let cn_oc = Stdlib.open_out (Filename.concat prefix "cn.c") in
+  let cn_oc =
+    Stdlib.open_out (Filename.concat prefix (get_cn_helper_filename filename))
+  in
   let cn_header_oc = Stdlib.open_out (Filename.concat prefix "cn.h") in
-  let instrumentation, _ = Executable_spec_extract.collect_instrumentation prog5 in
-  Executable_spec_records.populate_record_map instrumentation prog5;
+  let instrumentation, _ = Extract.collect_instrumentation prog5 in
+  Records.populate_record_map instrumentation prog5;
   let executable_spec =
     generate_c_specs
       without_ownership_checking
@@ -228,21 +240,17 @@ let main
     generate_conversion_and_equality_functions sigm
   in
   let cn_header_pair = ("cn.h", false) in
-  let cn_header = Executable_spec_utils.generate_include_header cn_header_pair in
+  let cn_header = Utils.generate_include_header cn_header_pair in
   let cn_utils_header_pair = ("cn-executable/utils.h", true) in
-  let cn_utils_header =
-    Executable_spec_utils.generate_include_header cn_utils_header_pair
-  in
+  let cn_utils_header = Utils.generate_include_header cn_utils_header_pair in
   let ownership_function_defs, ownership_function_decls =
     generate_ownership_functions without_ownership_checking !Cn_to_ail.ownership_ctypes
   in
   let c_struct_defs = generate_c_struct_strs sigm.tag_definitions in
   let cn_converted_struct_defs = generate_cn_versions_of_structs sigm.tag_definitions in
-  let record_fun_defs, record_fun_decls =
-    Executable_spec_records.generate_c_record_funs sigm
-  in
+  let record_fun_defs, record_fun_decls = Records.generate_c_record_funs sigm in
   let datatype_strs = String.concat "\n" (List.map snd c_datatype_defs) in
-  let record_defs = Executable_spec_records.generate_all_record_strs () in
+  let record_defs = Records.generate_all_record_strs () in
   let cn_header_decls_list =
     [ cn_utils_header;
       "\n";
@@ -262,9 +270,7 @@ let main
     ]
   in
   let cn_header_oc_str =
-    Executable_spec_utils.ifndef_wrap
-      "CN_HEADER"
-      (String.concat "\n" cn_header_decls_list)
+    Utils.ifndef_wrap "CN_HEADER" (String.concat "\n" cn_header_decls_list)
   in
   output_to_oc cn_header_oc [ cn_header_oc_str ];
   (* Genereate CN.c *)
@@ -285,9 +291,14 @@ let main
   output_to_oc cn_oc cn_defs_list;
   (* Generate myfile-exec.c *)
   let incls =
-    [ ("assert.h", true); ("stdlib.h", true); ("stdbool.h", true); ("math.h", true) ]
+    [ ("assert.h", true);
+      ("stdlib.h", true);
+      ("stdbool.h", true);
+      ("math.h", true);
+      ("limits.h", true)
+    ]
   in
-  let headers = List.map Executable_spec_utils.generate_include_header incls in
+  let headers = List.map Utils.generate_include_header incls in
   let source_file_strs_list = [ cn_header; List.fold_left ( ^ ) "" headers; "\n" ] in
   output_to_oc oc source_file_strs_list;
   let c_datatype_locs = List.map fst c_datatype_defs in
